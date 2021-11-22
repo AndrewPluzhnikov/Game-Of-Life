@@ -25,6 +25,7 @@ using rapidjson::PrettyWriter;
 
 const int live_to_live_threshold = 3;
 const int dead_to_live_threshold = 2;
+const double THRESHOLD = 0.3;
 
 class GLife {
  public:
@@ -101,16 +102,18 @@ class GLife {
         live_neighbors.begin());
       const int num_live = it - live_neighbors.begin();
       bool live = state_.find(i) != state_.end();
-/*    Underpopulation Rule
-      const int threshold = live ?
-        live_to_live_threshold : dead_to_live_threshold;
-      if (num_live >= threshold) next.insert(i);  
-*/
-      // Overpopulation Rule
-      if (live && num_live <= live_to_live_threshold)
-        next.insert(i);
-      if (!live && num_live >= dead_to_live_threshold)
-        next.insert(i);
+      double density = (double)num_live /  neighbors.size();
+      if (density > THRESHOLD) {
+        // flip
+        if (!live) {
+           next.insert(i);
+        }
+      } else {
+        // keep same
+        if (live) {
+           next.insert(i);
+        }
+      }
     }
     state_.swap(next);
   }

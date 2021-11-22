@@ -118,6 +118,14 @@ int main(int argc, char *argv[])
       std::cout << "Finite path: " << it->second;
       std::cout << ", Cycle length: " << i - it->second << std::endl; 
       SaveResults(filename, i, it->second, i - it->second);      
+
+      // Make cycle repeat N=10 times.
+      const int N = 10;
+      std::vector<std::string> cycle(
+          doc_states.begin() + it->second, doc_states.end());
+      for (int j = 0; j < N; j++) {
+        doc_states.insert(doc_states.end(), cycle.begin(), cycle.end());
+      }
       break;
     }
   }
