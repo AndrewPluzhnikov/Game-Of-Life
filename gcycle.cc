@@ -76,16 +76,21 @@ void SaveResults(std::string& filename,
   std::cout << "Result saved in file " << filename << std::endl;
 }
 
-int main() 
+int main(int argc, char *argv[]) 
 {
   int max_steps;
   // Input torus size and file to dump it to
   std::string filename;
-  std::cout << "Enter input graph filename: ";
-  std::getline(std::cin, filename);
-  std::cout << "Enter max steps: ";
-  std::cin >> max_steps;
 
+  if (argc == 3) {
+    filename = argv[1];
+    max_steps = atoi(argv[2]);
+  } else {
+    std::cout << "Enter input graph filename: ";
+    std::getline(std::cin, filename);
+    std::cout << "Enter max steps: ";
+    std::cin >> max_steps;
+  }
   // Do not run if result already available in 'filename' 
   if (IsResult(filename)) {
     std::cout << "Result is already available in " << filename << std::endl; 
