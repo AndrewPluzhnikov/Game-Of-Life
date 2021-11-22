@@ -104,7 +104,8 @@ int main(int argc, char *argv[])
   // 2. to dump to file
   std::vector<std::string> doc_states;
 
-  for (int i = 0; i < max_steps; ++i) {
+  int i;
+  for (i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
     std::cout << i << ": " << state << std::endl;
     const auto it = states.find(state);
@@ -117,14 +118,15 @@ int main(int argc, char *argv[])
       std::cout << "Finite path: " << it->second;
       std::cout << ", Cycle length: " << i - it->second << std::endl; 
       SaveResults(filename, i, it->second, i - it->second);      
-      return 1;
+      break;
     }
   }
+  if (i == max_steps) {
+    // No cycle found within max_steps
+    std::cout << "Finite path: unknown";
+    std::cout << ", Cycle length: unknown" << std::endl;
+    SaveResults(filename, max_steps, 0, 0);
+  }
   SaveStates(filename, doc_states);
-  std::cout << "Finite path: unknown";
-  std::cout << ", Cycle length: unknown" << std::endl;
-
-  // No cycle found within max_steps
-  SaveResults(filename, max_steps, 0, 0);
   return 0;
 }
