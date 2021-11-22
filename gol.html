@@ -1,0 +1,233 @@
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    <title> GOL on Torus</title>
+
+
+<form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+  <fieldset>
+    <h2>GOL Animation</h2>
+     <input type='file' id='fileinput'>
+     <input type='button' id='btnLoad' value='Load' onclick='loadFile();'>
+  </fieldset>
+</form>
+
+<p id="step"> Step</p>
+
+<script type="text/javascript">
+
+var doc
+var torusSize
+var numStates
+
+/**
+ * @function loadFile
+ */
+function loadFile() {
+  var input, file, fr;
+
+  if (typeof window.FileReader !== 'function') {
+    alert("The file API isn't supported on this browser yet.");
+    return;
+  }
+
+  input = document.getElementById('fileinput');
+  if (!input) {
+    alert("Couldn't find the fileinput element.");
+  }
+  else if (!input.files) {
+    alert("This browser doesn't seem to support the `files` property of file inputs.");
+  }
+  else if (!input.files[0]) {
+    alert("Please select a file to load");
+  }
+  else {
+    file = input.files[0];
+    fr = new FileReader();
+    fr.onload = receivedText;
+    fr.readAsText(file);
+  }
+
+  function receivedText(e) {
+    let lines = e.target.result;
+    doc = JSON.parse(lines); 
+    // read dimensions
+
+    torusSize = doc["size"];
+    numStates = doc["result"]["states"].length;
+    setup();
+  }
+}
+
+/**
+ * @function createCell
+ * @param {uint} x
+ * @param {uint} y
+ * @returns {{ isAlive:boolean }}
+ */
+function createCell(x, y) {
+  return { // initial state from input json file that is saved in states[0] 
+    isAlive: doc["result"]["states"][0][x * torusSize + y] ? true : false 
+  }
+}
+
+/**
+ * @function createGrid
+ * @param {ufloat} w
+ * @param {ufloat} h
+ * @returns {Cell[Cell[]]}
+ */
+function createGrid(w, h) {
+  var cells = []
+
+  for(var x = 0; x < w; ++x) {
+    cells[x] = []
+    for(var y = 0; y < h; ++y) {
+      cells[x][y] = createCell(x, y)
+    }
+  }
+
+  return cells
+}
+
+var FPS = 1
+var SIZE_X = 400
+var SIZE_Y = 400
+var step = 0
+
+var canvas
+var ctx
+
+var cells
+var nextState
+
+var prevTime
+var lagTime
+var timeStep
+
+/**
+ * @function setup
+ */
+function setup() {
+  canvas = document.createElement('canvas')
+  canvas.style.position = 'absolute'
+  canvas.style.top = canvas.style.left = '50%'
+  canvas.width = SIZE_X
+  canvas.height = SIZE_Y
+  canvas.style.marginLeft = `${-SIZE_X / 2}px`
+  canvas.style.marginTop = `${-SIZE_Y / 2}px`
+  document.body.appendChild(canvas)
+
+  ctx = canvas.getContext('2d')
+  ctx.lineWidth = 1
+  ctx.strokeStyle = '#E4E4E4'
+  ctx.fillStyle = '#000'
+
+  cells = createGrid(torusSize, torusSize);
+
+  nextState = [];
+  for(var i = 0; i < torusSize; ++i) {
+    nextState[i] = [];
+  }
+
+  prevTime = Date.now()
+  lagTime = 0
+  timeStep = 1000 / FPS
+
+  canvas.addEventListener('mousemove', handleMouseMove)
+
+  draw()
+}
+
+/**
+ * @function draw
+ */
+function draw() {
+  var curTime = Date.now()
+  var dt = curTime - prevTime
+  prevTime = curTime
+  lagTime += dt
+
+  while(lagTime > timeStep) {
+    lagTime -= timeStep
+    update()
+  }
+
+  requestAnimationFrame(draw)
+}
+
+/**
+ * @function update
+ */
+function update() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  var sw = canvas.width / cells.length
+
+  if (step < numStates - 1)  
+    step++;
+  document.getElementById('step').innerHTML = step;
+
+  for(var x = 0; x < cells.length; ++x) {
+    var sh = canvas.height / cells[x].length
+    var ax = x * sw
+
+    for(var y = 0; y < cells[x].length; ++y) {
+      var ay = y * sh
+
+      nextState[x][y] = 
+        doc["result"]["states"][step][x * torusSize + y] ? true : false;
+
+      if(cells[x][y].isAlive) {
+        ctx.beginPath()
+        ctx.rect(ax, ay, sw, sh)
+        ctx.fill()
+      }
+    }
+  }
+
+  setNextState()
+}
+
+/**
+ * @function handleMouseMove
+ * @param {MouseEvent} e
+ */
+function handleMouseMove(e) {
+  var mx = e.offsetX / canvas.width
+  var my = e.offsetY / canvas.height
+
+  for(var x = 0; x < cells.length; ++x) {
+    for(var y = 0; y < cells.length; ++y) {
+      var ax = x / cells.length;
+      var ay = y / cells[x].length;
+      var aw = (x + 1) / cells.length;
+      var ah = (y + 1) / cells.length;
+
+      if(mx > ax && mx < aw  && my > ay && my < ah) {
+        cells[x][y].isAlive = true;
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * @function setNextState
+ */
+function setNextState() {
+  for(var i = 0; i < cells.length; ++i) {
+    for(var j = 0; j < cells[i].length; ++j) {
+      cells[i][j].isAlive = nextState[i][j]
+    }
+  }
+}
+
+</script>
+
+</head>
+<body>
+
+</body>
+</html>
+
