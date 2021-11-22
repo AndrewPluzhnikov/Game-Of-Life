@@ -86,17 +86,7 @@ class GTorus{
     outjson << "]," << endl; // end of edges
     // empty result; populated at end of simulation
     outjson << "\"result\" : {" << endl;
-    outjson << "\"states\" : [" << endl;
-    outjson << "[ "; 
-    std::string state;
-    for (int i = 0; i < adjacency_.size(); ++i) {
-      bool live = state_.find(i) != state_.end();
-      outjson << live ? "1" : "0";
-      if (i < adjacency_.size() - 1)
-        outjson << ",";
-    }
-    outjson << " ]" << endl;
-    outjson << "]," << endl;
+    outjson << "\"states\" : []," << endl;
     outjson << "\"steps\" : " << 0 << "," << endl;
     outjson << "\"finite_path\" : " << 0 << "," << endl;
     outjson << "\"cycle_length\" : " << 0 << endl;

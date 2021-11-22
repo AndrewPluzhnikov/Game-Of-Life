@@ -35,15 +35,14 @@ void SaveStates(std::string& filename,
   Value& result = doc["result"];
   Value& doc_states = result["states"];
   int torusSize = doc["size"].GetInt();
-
-  assert(states[0].length() == torusSize * torusSize);
+  auto& allocator = doc.GetAllocator();
   for (int i = 0; i < states.size(); i++)
     {
-      Value curr_state(doc_states[0], doc.GetAllocator());
+      Value state(rapidjson::kArrayType);
       // store state into curr_state and add it to doc_states array
       for (int j = 0; j < torusSize * torusSize; j++)
-        curr_state.GetArray()[j] = states[i][j] == '1' ? 1 : 0;
-      doc_states.PushBack(curr_state, doc.GetAllocator());
+        state.PushBack(states[i][j] == '1' ? 1 : 0, allocator);
+      doc_states.PushBack(state, allocator);
     }
   // dump file
   std::ofstream ofs(filename);
@@ -103,7 +102,7 @@ int main(int argc, char *argv[])
   // 1. to detect cycle
   std::map<std::string, int> states;
   // 2. to dump to file
-  std::vector<std::string> doc_states(max_steps);
+  std::vector<std::string> doc_states;
 
   for (int i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
@@ -113,8 +112,7 @@ int main(int argc, char *argv[])
       // A new state.
       states[state] = i;
       glife.Update();
-      if (i) 
-        doc_states[i-1] += state;
+      doc_states.push_back(std::move(state));
     } else { 
       std::cout << "Finite path: " << it->second;
       std::cout << ", Cycle length: " << i - it->second << std::endl; 
