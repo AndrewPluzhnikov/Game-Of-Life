@@ -78,10 +78,12 @@ class GLife {
 
   // Output a string representing the state of the graph
   std::string GetStateStr() {
-    std::string state;
-    for (int i = 0; i < adjacency_.size(); ++i) {
-      bool live = state_.find(i) != state_.end();
-      state += live ? "1" : "0"; 
+    const size_t size = adjacency_.size();
+    std::string state(size, '0');
+    for (int i = 0; i < size; ++i) {
+      if (state_.find(i) != state_.end()) {
+        state[i] = '1';
+      }
     }
     return state;
   }
