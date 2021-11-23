@@ -134,8 +134,6 @@ function setup() {
   lagTime = 0
   timeStep = 1000 / FPS
 
-  canvas.addEventListener('mousemove', handleMouseMove)
-
   draw()
 }
 
@@ -187,29 +185,6 @@ function update() {
   }
 
   setNextState()
-}
-
-/**
- * @function handleMouseMove
- * @param {MouseEvent} e
- */
-function handleMouseMove(e) {
-  var mx = e.offsetX / canvas.width
-  var my = e.offsetY / canvas.height
-
-  for(var x = 0; x < cells.length; ++x) {
-    for(var y = 0; y < cells.length; ++y) {
-      var ax = x / cells.length;
-      var ay = y / cells[x].length;
-      var aw = (x + 1) / cells.length;
-      var ah = (y + 1) / cells.length;
-
-      if(mx > ax && mx < aw  && my > ay && my < ah) {
-        cells[x][y].isAlive = true;
-        return;
-      }
-    }
-  }
 }
 
 /**
