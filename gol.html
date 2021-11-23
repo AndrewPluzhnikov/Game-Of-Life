@@ -109,26 +109,28 @@ var timeStep
  * @function setup
  */
 function setup() {
-  canvas = document.createElement('canvas')
-  canvas.style.position = 'absolute'
-  canvas.style.top = canvas.style.left = '50%'
-  canvas.width = SIZE_X
-  canvas.height = SIZE_Y
-  canvas.style.marginLeft = `${-SIZE_X / 2}px`
-  canvas.style.marginTop = `${-SIZE_Y / 2}px`
-  document.body.appendChild(canvas)
+  if (typeof canvas === 'undefined') {
+    canvas = document.createElement('canvas')
+    canvas.style.position = 'absolute'
+    canvas.style.top = canvas.style.left = '50%'
+    canvas.width = SIZE_X
+    canvas.height = SIZE_Y
+    canvas.style.marginLeft = `${-SIZE_X / 2}px`
+    canvas.style.marginTop = `${-SIZE_Y / 2}px`
+    document.body.appendChild(canvas)
 
-  ctx = canvas.getContext('2d')
-  ctx.lineWidth = 1
-  ctx.strokeStyle = '#E4E4E4'
-  ctx.fillStyle = '#000'
+    ctx = canvas.getContext('2d')
+    ctx.lineWidth = 2 
+    ctx.strokeStyle = '#595959'
+    ctx.fillStyle = '#000'
 
-  cells = createGrid(torusSize, torusSize);
-
+    cells = createGrid(torusSize, torusSize);
+  }
   nextState = [];
   for(var i = 0; i < torusSize; ++i) {
     nextState[i] = [];
   }
+  step = 0
 
   prevTime = Date.now()
   lagTime = 0
@@ -166,9 +168,30 @@ function update() {
     step++;
   document.getElementById('step').innerHTML = step;
 
+  /* draw horizontal lines */
+  for(var y = 0; y < cells[0].length; ++y) {
+    var sh = canvas.height / cells[0].length
+    var ay = y * sh
+
+    ctx.beginPath()
+    ctx.moveTo(0, ay + 1)
+    ctx.lineTo(canvas.width, ay + 1)
+    ctx.stroke()
+  }
+  ctx.beginPath()
+  ctx.moveTo(0, canvas.height - 1)
+  ctx.lineTo(canvas.width, canvas.height - 1)
+  ctx.stroke()
+
   for(var x = 0; x < cells.length; ++x) {
     var sh = canvas.height / cells[x].length
     var ax = x * sw
+
+    /* draw vertical lines */
+    ctx.beginPath()
+    ctx.moveTo(ax + 1, 0)
+    ctx.lineTo(ax + 1, canvas.height)
+    ctx.stroke()
 
     for(var y = 0; y < cells[x].length; ++y) {
       var ay = y * sh
@@ -183,6 +206,10 @@ function update() {
       }
     }
   }
+  ctx.beginPath()
+  ctx.moveTo(canvas.width - 1, 0)
+  ctx.lineTo(canvas.width - 1, canvas.height)
+  ctx.stroke()
 
   setNextState()
 }
