@@ -28,8 +28,8 @@ double ShannonEntropy(std::vector<std::string>::iterator begin,
     assert(p0 <= 1.0);
     assert(0.0 <= p0);
 
-    if (p0 != 0) { result -= p0 * std::log(p0); }
-    if (p1 != 0) { result -= p1 * std::log(p1); }
+    if (p0 != 0) { result -= p0 * std::log2(p0); }
+    if (p1 != 0) { result -= p1 * std::log2(p1); }
   }
   return result / num_nodes;
 }
