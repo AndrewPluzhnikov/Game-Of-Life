@@ -1,23 +1,37 @@
 // Driver program
 
+#include <cmath>
 #include <map>
+
 #include "glife.h"
 
-bool IsResult(std::string& filename) {
-  std::ifstream ifs(filename);
-  if (!ifs)
-    {
-      std::cout << "Error: file " << filename << " does not exist." << std::endl;
-      exit(1);
-    } 
-  IStreamWrapper isw(ifs);
-  Document doc;
-  doc.ParseStream(isw);
-  Value& result = doc["result"];
-  if (result.HasMember("finite_path") && !result["finite_path"].GetInt() &&
-      result.HasMember("cycle_length") && !result["cycle_length"].GetInt())
-    return false;
-  return true;
+double ShannonEntropy(std::vector<std::string>::iterator begin,
+                      std::vector<std::string>::iterator end) {
+  assert(begin != end);
+
+  const size_t num_nodes = begin->size();
+  std::vector<int> v(num_nodes);
+  for (auto it = begin; it != end; ++it) {
+    assert(it->size() == num_nodes);
+    for (int j = 0; j < num_nodes; j++) {
+      v[j] += (*it)[j] == '1' ? 1 : 0;
+    }
+  }
+  double result = 0.0;
+  const int cycle_len = end - begin;
+  for (const auto count : v) {
+    assert(count <= cycle_len);
+    double p1 = (double)count / cycle_len;
+    assert(p1 <= 1.0);
+    assert(0.0 <= p1);
+    double p0 = 1.0 - p1;
+    assert(p0 <= 1.0);
+    assert(0.0 <= p0);
+
+    if (p0 != 0) { result -= p0 * std::log2(p0); }
+    if (p1 != 0) { result -= p1 * std::log2(p1); }
+  }
+  return result / num_nodes;
 }
 
 // Save all states to json file
@@ -53,7 +67,7 @@ void SaveStates(std::string& filename,
 
 // Annotate results in input json file
 void SaveResults(std::string& filename,
-                 int steps, int prefix, int cycle) {
+                 int steps, int prefix, int cycle, double shannon_entropy) {
   std::ifstream ifs(filename);
   if (!ifs)
     {
@@ -67,6 +81,13 @@ void SaveResults(std::string& filename,
   result["steps"].SetInt(steps);
   result["finite_path"].SetInt(prefix);
   result["cycle_length"].SetInt(cycle);
+  if (result.FindMember("shannon_entropy") == result.MemberEnd()) {
+    Value v;
+    v.SetDouble(shannon_entropy);
+    result.AddMember("shannon_entropy", v, doc.GetAllocator());
+  } else {
+    result["shannon_entropy"].SetDouble(shannon_entropy);
+  }
   // dump file
   std::ofstream ofs(filename);
   OStreamWrapper osw(ofs);
@@ -90,11 +111,6 @@ int main(int argc, char *argv[])
     std::cout << "Enter max steps: ";
     std::cin >> max_steps;
   }
-  // Do not run if result already available in 'filename' 
-  if (IsResult(filename)) {
-    std::cout << "Result is already available in " << filename << std::endl; 
-    return 1;
-  }
 
   // Simulate GOL
   GLife glife(filename);
@@ -104,6 +120,8 @@ int main(int argc, char *argv[])
   // 2. to dump to file
   std::vector<std::string> doc_states;
 
+  int cycle_begin = -1;
+  int cycle_end = -1;
   int i;
   for (i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
@@ -115,9 +133,10 @@ int main(int argc, char *argv[])
       glife.Update();
       doc_states.push_back(std::move(state));
     } else { 
+      cycle_begin = it->second;
       std::cout << "Finite path: " << it->second;
-      std::cout << ", Cycle length: " << i - it->second << std::endl; 
-      SaveResults(filename, i, it->second, i - it->second);      
+      std::cout << ", Cycle length: " << i - cycle_begin << std::endl; 
+      cycle_end = i;
 
       // Make cycle repeat N=10 times.
       const int N = 10;
@@ -129,11 +148,20 @@ int main(int argc, char *argv[])
       break;
     }
   }
+  double shannon_entropy = 0.0;
   if (i == max_steps) {
     // No cycle found within max_steps
     std::cout << "Finite path: unknown";
     std::cout << ", Cycle length: unknown" << std::endl;
-    SaveResults(filename, max_steps, 0, 0);
+    shannon_entropy = ShannonEntropy(doc_states.begin(), doc_states.end());
+    printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    SaveResults(filename, max_steps, 0, 0, shannon_entropy);
+  } else {
+    assert(cycle_begin != -1);
+    shannon_entropy = ShannonEntropy(doc_states.begin() + cycle_begin,
+                                     doc_states.begin() + cycle_end);
+    printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    SaveResults(filename, i, cycle_begin, i - cycle_begin, shannon_entropy);      
   }
   SaveStates(filename, doc_states);
   return 0;
