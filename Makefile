@@ -1,5 +1,5 @@
 CXXFLAGS = -g -I ${HOME}/rapidjson/include
-PROGS = gtorusgen gcycle
+PROGS = gtorusgen gcycle genstates
 
 .PHONY: all clean
 
