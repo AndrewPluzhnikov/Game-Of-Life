@@ -25,7 +25,7 @@ using rapidjson::PrettyWriter;
 
 const int live_to_live_threshold = 3;
 const int dead_to_live_threshold = 2;
-const double THRESHOLD = 0.3;
+const double THRESHOLD = 0.374;
 
 class GLife {
  public:
@@ -80,13 +80,25 @@ class GLife {
   // Output a string representing the state of the graph
   std::string GetStateStr() {
     const size_t size = adjacency_.size();
-    std::string state(size, '0');
+    std::string state(size, '.');
     for (int i = 0; i < size; ++i) {
       if (state_.find(i) != state_.end()) {
         state[i] = '1';
       }
     }
     return state;
+  }
+
+  // Set state from a given state string
+  // Inverse of GetStateStr();
+  void SetState(const std::string& state) {
+    assert(state.size() == adjacency_.size());
+    state_.clear();
+    for (int j = 0; j < state.size(); j++) {
+      if (state[j] == '1') {
+        state_.insert(j);
+      }
+    }
   }
 
   // Simulate one step of life on the underlying graph
