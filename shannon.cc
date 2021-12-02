@@ -112,6 +112,8 @@ int main(int argc, char *argv[])
     usage(argv[0]);
   }
 
+  GLife zygote(graph_filename, 0);
+
   auto start = std::chrono::steady_clock::now();
   for (double mu = 0.1; mu < 1.0; mu += 0.1) {
     int count_states = 0;
@@ -122,7 +124,8 @@ int main(int argc, char *argv[])
       ifs >> state;
       if (ifs.eof()) break;
     
-      GLife glife(graph_filename, mu);
+      GLife glife(zygote);
+      glife.SetMu(mu);
       glife.SetState(state);
       average_entropy += OneSimulation(glife);
       count_states += 1;

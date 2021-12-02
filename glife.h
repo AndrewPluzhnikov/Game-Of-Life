@@ -28,6 +28,7 @@ const int dead_to_live_threshold = 2;
 
 class GLife {
  public:
+  explicit GLife(const GLife& other) = default;
   // 'filename' contains the specification of a graph
   // including its state and possibly embedding in JSON format
   explicit GLife(const std::string& filename, double mu) {
@@ -88,6 +89,8 @@ class GLife {
     }
     return state;
   }
+
+  void SetMu(double mu) { mu_ = mu; }
 
   // Set state from a given state string
   // Inverse of GetStateStr();
