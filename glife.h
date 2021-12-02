@@ -6,8 +6,8 @@
 #include <algorithm>
 #include <fstream>
 #include <iostream>
-#include <map>
-#include <set>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include"rapidjson/document.h"
@@ -25,13 +25,13 @@ using rapidjson::PrettyWriter;
 
 const int live_to_live_threshold = 3;
 const int dead_to_live_threshold = 2;
-const double THRESHOLD = 0.374;
 
 class GLife {
  public:
   // 'filename' contains the specification of a graph
   // including its state and possibly embedding in JSON format
-  explicit GLife(const std::string& filename) {
+  explicit GLife(const std::string& filename, double mu) {
+    mu_ = mu;
     // Read and parse 'filename' in JSON format.
     std::ifstream ifs(filename);
     if (!ifs)
@@ -40,10 +40,10 @@ class GLife {
     IStreamWrapper isw(ifs);
     Document doc;
     doc.ParseStream(isw);
-    assert(doc.HasMember("vertices")); 
+    assert(doc.HasMember("vertices"));
     const Value& vertices = doc["vertices"];
     assert(vertices.IsArray());
-    assert(doc.HasMember("edges")); 
+    assert(doc.HasMember("edges"));
     const Value& arcs = doc["edges"];
     assert(arcs.IsArray());
     // Populate vertex adjacencies.
@@ -52,7 +52,7 @@ class GLife {
     vertex_names_.resize(num_vertices);
     for (int i = 0; i < num_vertices; ++i) {
       assert(vertices[i].HasMember("name"));
-      vertex_names_[i] = vertices[i]["name"].GetString(); 
+      vertex_names_[i] = vertices[i]["name"].GetString();
       name_to_index_[vertex_names_[i]] = i;
       if (vertices[i].HasMember("state"))
         {
@@ -73,7 +73,7 @@ class GLife {
       const int index2 = it2->second;
       // We treat all arcs as undirected.
       adjacency_[index1].insert(index2);
-      adjacency_[index2].insert(index1); 
+      adjacency_[index2].insert(index1);
     }
   }
 
@@ -103,19 +103,16 @@ class GLife {
 
   // Simulate one step of life on the underlying graph
   void Update() {
-    std::set<int> next;
+    std::unordered_set<int> next;
     for (int i = 0; i < adjacency_.size(); ++i) {
-      const std::set<int>& neighbors = adjacency_[i];
+      const std::unordered_set<int>& neighbors = adjacency_[i];
       std::vector<int> live_neighbors(
         std::min(state_.size(), neighbors.size()));
-      std::vector<int>::iterator it = std::set_intersection(
-        state_.begin(), state_.end(),
-        neighbors.begin(), neighbors.end(),
-        live_neighbors.begin());
-      const int num_live = it - live_neighbors.begin();
+      const int num_live = std::count_if(neighbors.begin(), neighbors.end(),
+           [this](const int id) { return state_.find(id) != state_.end(); });
       bool live = state_.find(i) != state_.end();
       double density = (double)num_live /  neighbors.size();
-      if (density > THRESHOLD) {
+      if (density > mu_) {
         // flip
         if (!live) {
            next.insert(i);
@@ -133,7 +130,7 @@ class GLife {
   void OutputLiveAnnotations() {
     for (int i = 0; i < adjacency_.size(); ++i) {
       std::cout << vertex_names_[i] << ": ";
-      const std::set<int>& neighbors = adjacency_[i]; 
+      const std::unordered_set<int>& neighbors = adjacency_[i];
       for (int j : neighbors) {
         bool live = state_.find(j) != state_.end();
         std::string annotation = live ? "*" : "";
@@ -149,15 +146,16 @@ class GLife {
   }
 
  private:
+  double mu_;
   // A representation of the underlying graph.
-  std::vector<std::set<int>> adjacency_;
+  std::vector<std::unordered_set<int>> adjacency_;
   // Active vertices.
-  std::set<int> state_;
+  std::unordered_set<int> state_;
   // Original vertex names.
   std::vector<std::string> vertex_names_;
-  std::map<std::string, int> name_to_index_;
+  std::unordered_map<std::string, int> name_to_index_;
   // Stop state.
-  std::set<int> stop_state_;
+  std::unordered_set<int> stop_state_;
   // TODO: represent embedding.
 
   // Add vertex 'i' to the live vertices.
