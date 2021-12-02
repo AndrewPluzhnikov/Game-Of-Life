@@ -5,7 +5,8 @@
 // Compute and print shannon entropy.
 
 #include <cmath>
-#include <map>
+#include <chrono>
+#include <unordered_map>
 #include <fstream>
 
 #include "glife.h"
@@ -45,14 +46,14 @@ void usage(const char *argv0)
   exit(1);
 }
 
-void OneSimulation(GLife& glife)
+double OneSimulation(GLife& glife)
 {
-  const int max_steps = 100000;
+  const int max_steps = 1000;
 
   // Simulate GOL
   // Save intermediate states 
   // 1. to detect cycle
-  std::map<std::string, int> states;
+  std::unordered_map<std::string, int> states;
   // 2. to dump to file
   std::vector<std::string> doc_states;
 
@@ -62,16 +63,15 @@ void OneSimulation(GLife& glife)
   for (i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
     // std::cout << i << ": " << state << std::endl;
-    const auto it = states.find(state);
-    if (it == states.end()) {
+    const auto [it, inserted] = states.insert({state, i});
+    if (inserted) {
       // A new state.
-      states[state] = i;
       glife.Update();
       doc_states.push_back(std::move(state));
     } else { 
       cycle_begin = it->second;
-      std::cout << "Finite path: " << it->second;
-      std::cout << ", Cycle length: " << i - cycle_begin << " ";
+      // std::cout << "Finite path: " << it->second;
+      // std::cout << ", Cycle length: " << i - cycle_begin << " ";
       cycle_end = i;
 
       // Make cycle repeat N=10 times.
@@ -87,16 +87,17 @@ void OneSimulation(GLife& glife)
   double shannon_entropy = 0.0;
   if (i == max_steps) {
     // No cycle found within max_steps
-    std::cout << "Finite path: unknown";
-    std::cout << ", Cycle length: unknown" << std::endl;
+    // std::cout << "Finite path: unknown";
+    // std::cout << ", Cycle length: unknown" << std::endl;
     shannon_entropy = ShannonEntropy(doc_states.begin(), doc_states.end());
-    printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    // printf("Shannon entropy: %6.2f\n", shannon_entropy);
   } else {
     assert(cycle_begin != -1);
     shannon_entropy = ShannonEntropy(doc_states.begin() + cycle_begin,
                                      doc_states.begin() + cycle_end);
-    printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    // printf("Shannon entropy: %6.2f\n", shannon_entropy);
   }
+  return shannon_entropy;
 }
 
 int main(int argc, char *argv[]) 
@@ -111,15 +112,30 @@ int main(int argc, char *argv[])
     usage(argv[0]);
   }
 
-  std::ifstream ifs(states_filename);
-  while (true) {
-    std::string state;
-    ifs >> state;
-    if (ifs.eof()) break;
+  auto start = std::chrono::steady_clock::now();
+  for (double mu = 0.1; mu < 1.0; mu += 0.1) {
+    int count_states = 0;
+    std::ifstream ifs(states_filename);
+    double average_entropy = 0.0;
+    while (true) {
+      std::string state;
+      ifs >> state;
+      if (ifs.eof()) break;
     
-    GLife glife(graph_filename);
-    glife.SetState(state);
-    OneSimulation(glife);
+      GLife glife(graph_filename, mu);
+      glife.SetState(state);
+      average_entropy += OneSimulation(glife);
+      count_states += 1;
+      if (false && (count_states % 10) == 0) {
+        auto end = std::chrono::steady_clock::now();
+        std::cout << "Elapsed time in milliseconds: "
+          << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+          << " ms" << std::endl;
+        start = end;
+      }
+    }
+    average_entropy /= count_states;
+    printf("%6.4f %8.4f\n", mu, average_entropy);
   }
 
   return 0;
