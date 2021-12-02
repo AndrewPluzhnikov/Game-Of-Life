@@ -140,11 +140,6 @@ class GLife {
     }
   }
 
-  // True if in the stop state.
-  bool IsStopState() {
-    return state_ == stop_state_;
-  }
-
  private:
   double mu_;
   // A representation of the underlying graph.
@@ -154,9 +149,6 @@ class GLife {
   // Original vertex names.
   std::vector<std::string> vertex_names_;
   std::unordered_map<std::string, int> name_to_index_;
-  // Stop state.
-  std::unordered_set<int> stop_state_;
-  // TODO: represent embedding.
 
   // Add vertex 'i' to the live vertices.
   void SetLiveVertex(const std::string& name) {
