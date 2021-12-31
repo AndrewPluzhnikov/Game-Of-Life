@@ -2,6 +2,11 @@
 
 set -eu
 
+for population in 1 2 3 5; do
+  echo "=== Base === population: $population ==="
+  ./shannon2 30x30.json 30x30_states_${population}.txt
+done
+
 for r in 2 4 8 16 32; do
   for try in $(seq 1 5); do
     for population in 1 2 3 5; do
