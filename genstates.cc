@@ -12,7 +12,7 @@
 
 void usage(const char *argv0)
 {
-  std::cerr << "Usage: " << argv0 << " num-states torus-size percent-live" << std::endl;
+  std::cerr << "Usage: " << argv0 << " num-states torus-size fraction-live" << std::endl;
   exit(1);
 }
 
