@@ -3,9 +3,12 @@
 
 // Life on a Graph.
 
+#include <assert.h>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
+#include <optional>
+#include <tuple>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -114,6 +117,7 @@ class GLife {
       const int num_live = std::count_if(neighbors.begin(), neighbors.end(),
            [this](const int id) { return state_.find(id) != state_.end(); });
       bool live = state_.find(i) != state_.end();
+#if 0
       double density = (double)num_live /  neighbors.size();
       if (density > mu_) {
         // flip
@@ -126,6 +130,17 @@ class GLife {
            next.insert(i);
         }
       }
+#else
+    if (num_live < 2) {
+      next.erase(i);
+    } else if (num_live == 2 && live) {
+      next.insert(i);
+    } else if (num_live == 3) {
+      next.insert(i);
+    } else if (num_live > 3) {
+      next.erase(i);
+    }
+#endif
     }
     state_.swap(next);
   }
@@ -141,6 +156,166 @@ class GLife {
       }
       std::cout << std::endl;
     }
+  }
+
+  // Select two random Edges [a,b] and [c,d] such that
+  // [a,b] and [c,d] can be removed and [a,c] and [b,d]
+  // can be connected without violation of "each node has 8 neighbors"
+  // property.
+  std::optional<std::array<int, 4>> SelectRandomEdges() {
+    const int a = rand() % adjacency_.size();
+    const int c = rand() % adjacency_.size();
+    if (a == c) return std::nullopt;
+    auto& a_neighbors = adjacency_[a];
+    if (a_neighbors.find(c) != a_neighbors.end()) {
+      // We picked directly connected nodes. Try again.
+      return std::nullopt;
+    }
+    auto a_iter = a_neighbors.begin();
+    std::advance(a_iter, rand() % a_neighbors.size());
+    const int b = *a_iter;
+
+    auto& c_neighbors = adjacency_[c];
+    if (c_neighbors.find(b) != c_neighbors.end()) {
+      return std::nullopt;
+    }
+    auto c_iter = c_neighbors.begin();
+    std::advance(c_iter, rand() % c_neighbors.size());
+    const int d = *c_iter;
+
+    auto& b_neighbors = adjacency_[b];
+    if (b_neighbors.find(d) != b_neighbors.end()) {
+      return std::nullopt;
+    }
+    return std::array<int, 4>{a, b, c, d};
+  }
+
+  void AddEdge(int a, int b) {
+    assert(a != b);
+    auto &a_neighbors = adjacency_[a];
+    auto &b_neighbors = adjacency_[b];
+
+    assert(a_neighbors.find(b) == a_neighbors.end());
+    assert(b_neighbors.find(a) == b_neighbors.end());
+
+    a_neighbors.insert(b);
+    b_neighbors.insert(a);
+  }
+
+  void RemoveEdge(int a, int b) {
+    size_t n = adjacency_[a].erase(b);
+    assert(n == 1);
+    n = adjacency_[b].erase(a);
+    assert(n == 1);
+  }
+
+  bool ReWireRandomEdges() {
+    auto e = SelectRandomEdges();
+    if (!e) return false;
+    auto &arr = e.value();
+    int a = arr[0];
+    int b = arr[1];
+    int c = arr[2];
+    int d = arr[3];
+    std::cerr << "Rewire " << a << "<->" << b << 
+        " and " << c << "<->" << d << " to " <<
+        a << "<->" << c << " and " << b << "<->" << d <<
+        std::endl;
+
+    auto& a_neighbors = adjacency_[a];
+    auto& b_neighbors = adjacency_[b];
+    auto& c_neighbors = adjacency_[c];
+    auto& d_neighbors = adjacency_[d];
+
+    // Remove a<->b edge.
+    RemoveEdge(a, b);
+    assert(a_neighbors.size() == 7);
+    assert(b_neighbors.size() == 7);
+
+    // Remove c<->d edge.
+    RemoveEdge(c, d);
+    assert(c_neighbors.size() == 7);
+    assert(d_neighbors.size() == 7);
+
+    // Connect a<->c.
+    a_neighbors.insert(c);
+    c_neighbors.insert(a);
+
+    // Connect b<->d.
+    b_neighbors.insert(d);
+    d_neighbors.insert(b);
+
+    return true;
+  }
+
+  void AddEdges(int n) {
+    while (n > 0) {
+      auto e = SelectRandomEdges();
+      if (!e) continue;
+      auto& arr = e.value();
+      AddEdge(arr[0], arr[1]);
+      n -= 1;
+      if (n <= 0) break;
+      AddEdge(arr[2], arr[3]);
+      n -= 1;
+    }
+  }
+
+  void RemoveEdges(int n) {
+    while (n > 0) {
+      auto e = SelectRandomEdges();
+      if (!e) continue;
+      auto& arr = e.value();
+      RemoveEdge(arr[0], arr[1]);
+      n -= 1;
+      if (n <= 0) break;
+      RemoveEdge(arr[2], arr[3]);
+      n -= 1;
+    }
+  }
+
+  // Rewire n edges at random.
+  void ReWire(int n) {
+    for (int j = 0; j < n; j++) {
+      while (!ReWireRandomEdges()) {
+        // Failed for some reason. Try again.
+      }
+    }
+  }
+
+  void DumpToJSON(const std::string& filename) {
+    std::ofstream outjson;
+    outjson.open(filename);
+    outjson << "{" << std::endl;
+    outjson << "\"vertices\" : [" << std::endl;
+    for (int index = 0; index < adjacency_.size(); ++index) {
+      outjson << "{ \"name\" : \"" << vertex_names_[index] << "\"";
+      bool live = state_.find(index) != state_.end();
+      if (live) {
+        outjson << ", \"state\" : true ";
+      }
+       
+      outjson << "}";
+      if (index < adjacency_.size() - 1)
+        outjson << ",";
+      outjson << std::endl;
+    }
+    outjson << "]," << std::endl; // end of vertices
+    outjson << "\"edges\" : [" << std::endl;
+    for (int index = 0; index < adjacency_.size(); ++index) {
+      const auto& neighbors = adjacency_[index]; 
+      int i = 0;
+      for (int j : neighbors) {
+        outjson << "{ \"s\" : \"" << vertex_names_[index] << "\","
+                << " \"t\" : \"" << vertex_names_[j] << "\" }";
+        if (!(index == adjacency_.size() - 1 && i == neighbors.size() - 1))
+          outjson << ",";
+        outjson << std::endl;
+        i++;
+      } 
+    }
+    outjson << "]}" << std::endl; // end of edges
+    outjson.close();
   }
 
  private:
