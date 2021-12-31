@@ -4,6 +4,9 @@
 // For each state, runs the GoL until cycle or 10000 steps
 // Compute and print shannon entropy.
 
+#include <errno.h>
+#include <sys/stat.h>
+
 #include <cmath>
 #include <chrono>
 #include <unordered_map>
@@ -13,13 +16,13 @@
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "glife.h"
 
 ABSL_FLAG(bool, verbose, false, "Be verbose");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
-ABSL_FLAG(std::string, entropy_file_csv, "", "CSV file to write entropy to");
 
 double ShannonEntropy(std::vector<std::string>::iterator begin,
                       std::vector<std::string>::iterator end) {
@@ -119,6 +122,31 @@ SimResult OneSimulation(GLife& glife)
   return result;
 }
 
+void SaveArgs(const std::string& outd, int argc, char *argv[])
+{
+  const std::string outf = outd + "/invocation.txt";
+  std::ofstream ofs(outf);
+  for (int i = 0; i < argc; i++) {
+    ofs << argv[i] << std::endl;
+  }
+}
+
+void SaveTo(const std::string& outd, absl::string_view filename,
+            const std::string& contents)
+{
+  const auto csv = absl::StrCat(outd, "/", filename);
+  std::ofstream ofs(csv);
+  ofs << contents << std::endl;
+}
+
+std::string ConcatArgs(int argc, char *argv[]) 
+{
+  std::string result;
+  for (int i = 0; i < argc; i++)
+    absl::StrAppend(&result, argv[i], ";");
+  return absl::StrReplaceAll(result, {{"/", "_"}});
+}
+
 int main(int argc, char *argv[]) 
 {
   srand(time(NULL));
@@ -150,8 +178,16 @@ int main(int argc, char *argv[])
     zygote.AddEdges(num_remove);
   }
 
+  const std::string outd = "results;" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
+  if (0 != mkdir(outd.c_str(), 0777)) {
+    std::cerr << argv[0] << " mkdir(" << outd << "): " << strerror(errno) << std::endl;
+    exit(1);
+  }
+  std::cout << "Results in " << outd << std::endl;
+  SaveArgs(outd, argc, argv);
+
   if (num_rewire > 0 || num_remove > 0 || num_add > 0) {
-    std::string out_graph = graph_filename + "_" + std::to_string(time(NULL));
+    std::string out_graph = outd + "/" + graph_filename;
     zygote.DumpToJSON(out_graph);
     if (num_rewire > 0) {
       std::cerr << "Wrote " << out_graph << " with " << num_rewire << " rewirings" << std::endl;
@@ -163,6 +199,8 @@ int main(int argc, char *argv[])
   }
 
   std::vector<double> entropies;
+  std::vector<int> max_steps;
+  std::vector<int> cycle_len;
 
   auto start = std::chrono::steady_clock::now();
   std::array<int, 61> histogram = {};
@@ -177,11 +215,9 @@ int main(int argc, char *argv[])
     glife.SetState(state);
 
     const auto result = OneSimulation(glife);
-    if (verbose) {
-      printf("%4d %8.6f %4d %4d\n", count_states, result.entropy, result.max_steps, result.cycle_len);
-      fflush(stdout);
-    }
     entropies.push_back(result.entropy);
+    max_steps.push_back(result.max_steps);
+    cycle_len.push_back(result.cycle_len);
 
     count_states += 1;
 
@@ -192,7 +228,7 @@ int main(int argc, char *argv[])
       histogram[bucket_index] += 1;
     }
       
-    if (false && (count_states % 10) == 0) {
+    if (verbose && (count_states % 100) == 0) {
       auto end = std::chrono::steady_clock::now();
       std::cerr << std::setw(4) << count_states << " Elapsed time in milliseconds: "
         << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
@@ -200,18 +236,11 @@ int main(int argc, char *argv[])
       start = end;
     }
   }
-  if (verbose) {
-    for (int j : histogram) {
-      printf(" %5d", j);
-    }
-    printf("\n");
-    fflush(stdout);
-  }
-  const auto file_csv = absl::GetFlag(FLAGS_entropy_file_csv);
-  if (!file_csv.empty()) {
-    std::ofstream ofs(file_csv);
-    ofs << absl::StrJoin(entropies, ",") << std::endl;
-  }
+
+  SaveTo(outd, "entropy_histogram.csv", absl::StrJoin(histogram, ","));
+  SaveTo(outd, "entropy.csv", absl::StrJoin(entropies, ","));
+  SaveTo(outd, "max_steps.csv", absl::StrJoin(max_steps, ","));
+  SaveTo(outd, "cycle_len.csv", absl::StrJoin(cycle_len, ","));
 
   return 0;
 }
