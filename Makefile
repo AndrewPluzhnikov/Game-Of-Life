@@ -1,13 +1,15 @@
-CXXFLAGS = -std=c++17 -g -Og -I ${HOME}/rapidjson/include -I ${HOME}/abseil-cpp
-LDFLAGS = -L ${HOME}/abseil-cpp/build/absl/flags  \
-  -L ${HOME}/abseil-cpp/build/absl/container \
-  -L ${HOME}/abseil-cpp/build/absl/strings \
-  -L ${HOME}/abseil-cpp/build/absl/synchronization \
-  -L ${HOME}/abseil-cpp/build/absl/time \
-  -L ${HOME}/abseil-cpp/build/absl/base  \
-  -L ${HOME}/abseil-cpp/build/absl/debugging  \
-  -L ${HOME}/abseil-cpp/build/absl/hash  \
-  -L ${HOME}/abseil-cpp/build/absl/numeric  \
+TOP ?= ${HOME}
+
+CXXFLAGS = -std=c++17 -g -Og -I ${TOP}/rapidjson/include -I ${TOP}/abseil-cpp
+LDFLAGS = -L ${TOP}/abseil-cpp/build/absl/flags  \
+  -L ${TOP}/abseil-cpp/build/absl/container \
+  -L ${TOP}/abseil-cpp/build/absl/strings \
+  -L ${TOP}/abseil-cpp/build/absl/synchronization \
+  -L ${TOP}/abseil-cpp/build/absl/time \
+  -L ${TOP}/abseil-cpp/build/absl/base  \
+  -L ${TOP}/abseil-cpp/build/absl/debugging  \
+  -L ${TOP}/abseil-cpp/build/absl/hash  \
+  -L ${TOP}/abseil-cpp/build/absl/numeric  \
 
 LDLIBS = -labsl_flags -labsl_flags_internal -labsl_flags_reflection \
   -labsl_flags_config \
