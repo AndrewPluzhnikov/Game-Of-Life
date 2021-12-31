@@ -183,7 +183,9 @@ int main(int argc, char *argv[])
     std::cerr << argv[0] << " mkdir(" << outd << "): " << strerror(errno) << std::endl;
     exit(1);
   }
-  std::cout << "Results in " << outd << std::endl;
+  if (verbose) {
+    std::cout << "Results in " << outd << std::endl;
+  }
   SaveArgs(outd, argc, argv);
 
   if (num_rewire > 0 || num_remove > 0 || num_add > 0) {
@@ -203,7 +205,7 @@ int main(int argc, char *argv[])
   std::vector<int> cycle_len;
 
   auto start = std::chrono::steady_clock::now();
-  std::array<int, 61> histogram = {};
+  std::array<int, 1001> histogram = {};
   int count_states = 0;
   std::ifstream ifs(states_filename);
   while (true) {
