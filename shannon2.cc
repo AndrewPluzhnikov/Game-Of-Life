@@ -23,6 +23,7 @@ ABSL_FLAG(bool, verbose, false, "Be verbose");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
+ABSL_FLAG(double, density_threshold, 0, "Use density rule with the given threshold");
 
 double ShannonEntropy(std::vector<std::string>::iterator begin,
                       std::vector<std::string>::iterator end) {
@@ -164,6 +165,18 @@ int main(int argc, char *argv[])
   }
 
   GLife zygote(graph_filename);
+
+  const double density_threshold = absl::GetFlag(FLAGS_density_threshold);
+  if (density_threshold > 0) {
+    zygote.SetNewStateFn([density_threshold](bool live, int num_neighbors,
+                                             int num_live_neighbors) {
+      const double density = (double) num_live_neighbors / num_neighbors;
+      if (density > density_threshold) {
+        return !live;
+      }
+      return live;
+    });
+  }
 
   const auto verbose = absl::GetFlag(FLAGS_verbose);
 
