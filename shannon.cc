@@ -112,7 +112,7 @@ int main(int argc, char *argv[])
     usage(argv[0]);
   }
 
-  GLife zygote(graph_filename, 0);
+  GLife zygote(graph_filename);
 
   auto start = std::chrono::steady_clock::now();
   for (double mu = 0.1; mu < 1.0; mu += 0.1) {
@@ -125,8 +125,16 @@ int main(int argc, char *argv[])
       if (ifs.eof()) break;
     
       GLife glife(zygote);
-      glife.SetMu(mu);
       glife.SetState(state);
+      glife.SetNewStateFn([mu](bool live, int num_neighbors, int num_live_neighbors) {
+        const double density = (double)num_live_neighbors / num_neighbors;
+        if (density > mu) {
+          // flip
+          return !live;
+        }
+        // stay the same
+        return live;
+      });
       average_entropy += OneSimulation(glife);
       count_states += 1;
       if (false && (count_states % 10) == 0) {

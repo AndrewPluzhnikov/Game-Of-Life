@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
   }
 
   // Simulate GOL
-  GLife glife(filename, 0.3);
+  GLife glife(filename);
   // Save intermediate states 
   // 1. to detect cycle
   std::map<std::string, int> states;

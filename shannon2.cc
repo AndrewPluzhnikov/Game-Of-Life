@@ -163,7 +163,7 @@ int main(int argc, char *argv[])
     usage(argv[0]);
   }
 
-  GLife zygote(graph_filename, 0);
+  GLife zygote(graph_filename);
 
   const auto verbose = absl::GetFlag(FLAGS_verbose);
 

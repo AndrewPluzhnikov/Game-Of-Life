@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <algorithm>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <tuple>
@@ -34,8 +35,7 @@ class GLife {
   explicit GLife(const GLife& other) = default;
   // 'filename' contains the specification of a graph
   // including its state and possibly embedding in JSON format
-  explicit GLife(const std::string& filename, double mu) {
-    mu_ = mu;
+  explicit GLife(const std::string& filename) {
     // Read and parse 'filename' in JSON format.
     std::ifstream ifs(filename);
     if (!ifs)
@@ -93,8 +93,6 @@ class GLife {
     return state;
   }
 
-  void SetMu(double mu) { mu_ = mu; }
-
   // Set state from a given state string
   // Inverse of GetStateStr();
   void SetState(const std::string& state) {
@@ -107,6 +105,19 @@ class GLife {
     }
   }
 
+  // Classical Conway rules
+  static bool NewStateConway(bool current_state, int num_neighbors,
+                      int num_live_neighbors) {
+    if (num_live_neighbors < 2) return false;
+    if (num_live_neighbors == 2) return current_state;
+    if (num_live_neighbors == 3) return true;
+    return false;
+  }
+
+  void SetNewStateFn(std::function<bool(bool, int, int)> fn) {
+    new_state_fn_ = std::move(fn);
+  }
+
   // Simulate one step of life on the underlying graph
   void Update() {
     std::unordered_set<int> next;
@@ -117,30 +128,10 @@ class GLife {
       const int num_live = std::count_if(neighbors.begin(), neighbors.end(),
            [this](const int id) { return state_.find(id) != state_.end(); });
       bool live = state_.find(i) != state_.end();
-#if 0
-      double density = (double)num_live /  neighbors.size();
-      if (density > mu_) {
-        // flip
-        if (!live) {
-           next.insert(i);
-        }
-      } else {
-        // keep same
-        if (live) {
-           next.insert(i);
-        }
+      live = new_state_fn_(live, neighbors.size(), num_live);
+      if (live) {
+        next.insert(i);
       }
-#else
-    if (num_live < 2) {
-      next.erase(i);
-    } else if (num_live == 2 && live) {
-      next.insert(i);
-    } else if (num_live == 3) {
-      next.insert(i);
-    } else if (num_live > 3) {
-      next.erase(i);
-    }
-#endif
     }
     state_.swap(next);
   }
@@ -319,7 +310,7 @@ class GLife {
   }
 
  private:
-  double mu_;
+  std::function<bool(bool, int, int)> new_state_fn_ = NewStateConway;
   // A representation of the underlying graph.
   std::vector<std::unordered_set<int>> adjacency_;
   // Active vertices.
