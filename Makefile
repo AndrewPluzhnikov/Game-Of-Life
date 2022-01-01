@@ -1,7 +1,8 @@
 TOP ?= ${HOME}
 
 CXXFLAGS = -std=c++17 -g -Og -I ${TOP}/rapidjson/include -I ${TOP}/abseil-cpp
-LDFLAGS = -L ${TOP}/abseil-cpp/build/absl/flags  \
+LDFLAGS = -pthread \
+  -L ${TOP}/abseil-cpp/build/absl/flags  \
   -L ${TOP}/abseil-cpp/build/absl/container \
   -L ${TOP}/abseil-cpp/build/absl/strings \
   -L ${TOP}/abseil-cpp/build/absl/synchronization \
@@ -24,15 +25,20 @@ LDLIBS = -labsl_flags -labsl_flags_internal -labsl_flags_reflection \
   -labsl_hash \
   -labsl_city \
   -labsl_low_level_hash \
-  -labsl_raw_hash_set -labsl_strings \
-  -labsl_raw_logging_internal -labsl_throw_delegate \
-  -labsl_synchronization -labsl_graphcycles_internal \
+  -labsl_raw_hash_set \
+  -labsl_strings \
+  -labsl_raw_logging_internal \
+  -labsl_throw_delegate \
+  -labsl_synchronization \
+  -labsl_graphcycles_internal \
   -labsl_time -labsl_time_zone \
   -labsl_symbolize \
   -labsl_stacktrace \
   -labsl_debugging_internal \
   -labsl_demangle_internal \
-  -labsl_base -labsl_spinlock_wait -labsl_malloc_internal \
+  -labsl_base \
+  -labsl_spinlock_wait \
+  -labsl_malloc_internal \
   -labsl_flags_private_handle_accessor \
   -labsl_int128 \
 
