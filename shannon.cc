@@ -9,7 +9,11 @@
 #include <unordered_map>
 #include <fstream>
 
+#include "absl/flags/flag.h"
+#include "absl/flags/parse.h"
 #include "glife.h"
+
+ABSL_FLAG(bool, verbose, false, "Be verbose");
 
 double ShannonEntropy(std::vector<std::string>::iterator begin,
                       std::vector<std::string>::iterator end) {
@@ -50,6 +54,8 @@ double OneSimulation(GLife& glife)
 {
   const int max_steps = 1000;
 
+  const bool verbose = absl::GetFlag(FLAGS_verbose);
+
   // Simulate GOL
   // Save intermediate states 
   // 1. to detect cycle
@@ -70,8 +76,10 @@ double OneSimulation(GLife& glife)
       doc_states.push_back(std::move(state));
     } else { 
       cycle_begin = it->second;
-      // std::cout << "Finite path: " << it->second;
-      // std::cout << ", Cycle length: " << i - cycle_begin << " ";
+      if (verbose) {
+        std::cout << "Finite path: " << it->second;
+        std::cout << ", Cycle length: " << i - cycle_begin << " ";
+      }
       cycle_end = i;
 
       // Make cycle repeat N=10 times.
@@ -87,30 +95,38 @@ double OneSimulation(GLife& glife)
   double shannon_entropy = 0.0;
   if (i == max_steps) {
     // No cycle found within max_steps
-    // std::cout << "Finite path: unknown";
-    // std::cout << ", Cycle length: unknown" << std::endl;
     shannon_entropy = ShannonEntropy(doc_states.begin(), doc_states.end());
-    // printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    if (verbose) {
+      std::cout << "Finite path: unknown";
+      std::cout << ", Cycle length: unknown" << std::endl;
+      printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    }
   } else {
     assert(cycle_begin != -1);
     shannon_entropy = ShannonEntropy(doc_states.begin() + cycle_begin,
                                      doc_states.begin() + cycle_end);
-    // printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    if (verbose) {
+      printf("Shannon entropy: %6.2f\n", shannon_entropy);
+    }
   }
   return shannon_entropy;
 }
 
 int main(int argc, char *argv[]) 
 {
+  const auto args = absl::ParseCommandLine(argc, argv);
+
   // Input torus size and file to dump it to
   std::string graph_filename, states_filename;
 
-  if (argc == 3) {
-    graph_filename = argv[1];
-    states_filename = argv[2];
+  if (args.size() == 3) {
+    graph_filename = args[1];
+    states_filename = args[2];
   } else {
     usage(argv[0]);
   }
+
+  const bool verbose = absl::GetFlag(FLAGS_verbose);
 
   GLife zygote(graph_filename);
 
@@ -137,7 +153,7 @@ int main(int argc, char *argv[])
       });
       average_entropy += OneSimulation(glife);
       count_states += 1;
-      if (false && (count_states % 10) == 0) {
+      if (verbose && (count_states % 10) == 0) {
         auto end = std::chrono::steady_clock::now();
         std::cout << "Elapsed time in milliseconds: "
           << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
