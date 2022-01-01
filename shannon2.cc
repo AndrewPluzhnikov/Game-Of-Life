@@ -24,6 +24,10 @@ ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
 ABSL_FLAG(double, density_threshold, 0, "Use density rule with the given threshold");
+ABSL_FLAG(std::vector<std::string>, underpopulation, {},
+          "Use underpopulation rule with given thresholds");
+ABSL_FLAG(std::vector<std::string>, overpopulation, {},
+          "Use overpopulation rule with given thresholds");
 
 double ShannonEntropy(std::vector<std::string>::iterator begin,
                       std::vector<std::string>::iterator end) {
@@ -175,6 +179,39 @@ int main(int argc, char *argv[])
         return !live;
       }
       return live;
+    });
+  }
+  const auto underpop = absl::GetFlag(FLAGS_underpopulation);
+  const auto overpop = absl::GetFlag(FLAGS_overpopulation);
+  if (!underpop.empty()) {
+    assert(density_threshold == 0);
+    assert(overpop.empty());
+    assert(underpop.size() == 2);
+    int i0 = atoi(underpop[0].c_str());
+    int i1 = atoi(underpop[1].c_str());
+    zygote.SetNewStateFn([i0, i1](bool live, int num_neighbors,
+                                  int num_live_neighbors) {
+      // Dead vertex becomes alive if it has at least i0 live neighbors.
+      // Live vertex remains alive if it has at least i1 live neighbors.
+      if (!live && num_live_neighbors >= i0) return true;
+      if (live && num_live_neighbors >= i1) return true;
+      return false;
+    });
+  }
+
+  if (!overpop.empty()) {
+    assert(density_threshold == 0);
+    assert(underpop.empty());
+    assert(overpop.size() == 2);
+    const int i0 = atoi(overpop[0].c_str());
+    const int i1 = atoi(overpop[1].c_str());
+    zygote.SetNewStateFn([i0, i1](bool live, int num_neighbors,
+                                  int num_live_neighbors) {
+      // Dead vertex becomes alive if it has at least i0 live neighbors.
+      // Live vertex remains alive if it has at most i1 live neighbors.
+      if (!live && num_live_neighbors >= i0) return true;
+      if (live && num_live_neighbors <= i1) return true;
+      return false;
     });
   }
 
