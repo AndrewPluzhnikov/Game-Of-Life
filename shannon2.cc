@@ -153,7 +153,7 @@ std::string ConcatArgs(int argc, char *argv[])
 {
   std::string result;
   for (int i = 0; i < argc; i++)
-    absl::StrAppend(&result, argv[i], ";");
+    absl::StrAppend(&result, argv[i], "___");
   return absl::StrReplaceAll(result, {{"/", "_"}});
 }
 
