@@ -23,11 +23,16 @@ ABSL_FLAG(bool, verbose, false, "Be verbose");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
+ABSL_FLAG(int, max_steps, 4000, "Number of edges to add");
 ABSL_FLAG(double, density_threshold, 0, "Use density rule with the given threshold");
 ABSL_FLAG(std::vector<std::string>, underpopulation, {},
           "Use underpopulation rule with given thresholds");
 ABSL_FLAG(std::vector<std::string>, overpopulation, {},
           "Use overpopulation rule with given thresholds");
+
+// Modified Conway rules.
+ABSL_FLAG(std::vector<std::string>, conway, {},
+          "Use modified Conway rule with 3 given thresholds");
 
 double ShannonEntropy(std::vector<std::string>::iterator begin,
                       std::vector<std::string>::iterator end) {
@@ -74,7 +79,7 @@ struct SimResult {
 
 SimResult OneSimulation(GLife& glife)
 {
-  const int max_steps = 4000;
+  const int max_steps = absl::GetFlag(FLAGS_max_steps);
   SimResult result;
 
   // Simulate GOL
@@ -183,6 +188,7 @@ int main(int argc, char *argv[])
   }
   const auto underpop = absl::GetFlag(FLAGS_underpopulation);
   const auto overpop = absl::GetFlag(FLAGS_overpopulation);
+  const auto conway = absl::GetFlag(FLAGS_conway);
   if (!underpop.empty()) {
     assert(density_threshold == 0);
     assert(overpop.empty());
@@ -213,6 +219,26 @@ int main(int argc, char *argv[])
       if (live && num_live_neighbors <= i1) return true;
       return false;
     });
+  }
+
+  if (!conway.empty()) {
+    assert(conway.size() == 3);
+    const int i0 = atoi(conway[0].c_str());
+    const int i1 = atoi(conway[1].c_str());
+    const int i2 = atoi(conway[2].c_str());
+
+    zygote.SetNewStateFn([i0, i1, i2](bool live, int num_neighbors,
+                                      int num_live_neighbors) {
+      // Dead vertex becomes alive if it has exactly i1 live neighbors.
+      if (num_live_neighbors == i1) return true;
+
+      // Dead if i0 or fewer or more than i2 neighbors.
+      if (num_live_neighbors <= i0 || num_live_neighbors > i2) return false;
+
+      // Otherwise remain in current state.
+      return live;
+    });
+
   }
 
   const auto verbose = absl::GetFlag(FLAGS_verbose);
