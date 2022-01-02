@@ -7,14 +7,16 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include <cmath>
 #include <chrono>
-#include <unordered_map>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
+#include <thread>
+#include <unordered_map>
 
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
+#include "absl/strings/strip.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "glife.h"
@@ -151,9 +153,11 @@ void SaveTo(const std::string& outd, absl::string_view filename,
 
 std::string ConcatArgs(int argc, char *argv[]) 
 {
-  std::string result;
-  for (int i = 0; i < argc; i++)
+  absl::string_view argv0 = absl::StripPrefix(argv[0], "./");
+  std::string result = absl::StrCat(argv0, "___");
+  for (int i = 1; i < argc; i++) {
     absl::StrAppend(&result, argv[i], "___");
+  }
   return absl::StrReplaceAll(result, {{"/", "_"}});
 }
 
@@ -254,7 +258,7 @@ int main(int argc, char *argv[])
     zygote.AddEdges(num_remove);
   }
 
-  const std::string outd = "results;" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
+  const std::string outd = "results___" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
   if (0 != mkdir(outd.c_str(), 0777)) {
     std::cerr << argv[0] << " mkdir(" << outd << "): " << strerror(errno) << std::endl;
     exit(1);
@@ -276,12 +280,9 @@ int main(int argc, char *argv[])
     }
   }
 
-  std::vector<double> entropies;
-  std::vector<int> max_steps;
-  std::vector<int> cycle_len;
+  std::vector<SimResult> results;
 
   auto start = std::chrono::steady_clock::now();
-  std::array<int, 1001> histogram = {};
   int count_states = 0;
   std::ifstream ifs(states_filename);
   while (true) {
@@ -292,20 +293,9 @@ int main(int argc, char *argv[])
     GLife glife(zygote);
     glife.SetState(state);
 
-    const auto result = OneSimulation(glife);
-    entropies.push_back(result.entropy);
-    max_steps.push_back(result.max_steps);
-    cycle_len.push_back(result.cycle_len);
-
+    results.push_back(OneSimulation(glife));
     count_states += 1;
 
-    int bucket_index = (int)(result.entropy / 0.001);
-    if (bucket_index > histogram.size()) {
-      std::cerr << "bucket_index " << bucket_index << " too high" << std::endl;
-    } else {
-      histogram[bucket_index] += 1;
-    }
-      
     if (verbose && (count_states % 100) == 0) {
       auto end = std::chrono::steady_clock::now();
       std::cerr << std::setw(4) << count_states << " Elapsed time in milliseconds: "
@@ -315,10 +305,26 @@ int main(int argc, char *argv[])
     }
   }
 
+  std::array<int, 1001> histogram = {};
+  for (const auto& result: results) {
+    int bucket_index = (int)(result.entropy / 0.001);
+    assert(bucket_index < histogram.size());
+    histogram[bucket_index] += 1;
+  }
+
   SaveTo(outd, "entropy_histogram.csv", absl::StrJoin(histogram, ","));
-  SaveTo(outd, "entropy.csv", absl::StrJoin(entropies, ","));
-  SaveTo(outd, "max_steps.csv", absl::StrJoin(max_steps, ","));
-  SaveTo(outd, "cycle_len.csv", absl::StrJoin(cycle_len, ","));
+  SaveTo(outd, "entropy.csv", absl::StrJoin(results, ",",
+                                            [](std::string *out, const SimResult& r) {
+                                                absl::StrAppend(out, r.entropy);
+                                            }));
+  SaveTo(outd, "max_steps.csv", absl::StrJoin(results, ",",
+                                              [](std::string *out, const SimResult& r) {
+                                                  absl::StrAppend(out, r.max_steps);
+                                              }));
+  SaveTo(outd, "cycle_len.csv", absl::StrJoin(results, ",",
+                                              [](std::string *out, const SimResult& r) {
+                                                  absl::StrAppend(out, r.cycle_len);
+                                              }));
 
   return 0;
 }
