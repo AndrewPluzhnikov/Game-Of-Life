@@ -11,9 +11,9 @@
 #include <cmath>
 #include <fstream>
 #include <iomanip>
-#include <thread>
-#include <unordered_map>
+#include <future>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/strings/strip.h"
@@ -22,6 +22,7 @@
 #include "glife.h"
 
 ABSL_FLAG(bool, verbose, false, "Be verbose");
+ABSL_FLAG(int, num_threads, 1, "Number of threads to use");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
@@ -76,18 +77,18 @@ struct SimResult {
   double entropy = 0.0;  // Shannon entropy.
   int cycle_len = -1;
   int max_steps = 0;
-  std::vector<std::string> states;
 };
 
 SimResult OneSimulation(GLife& glife)
 {
   const int max_steps = absl::GetFlag(FLAGS_max_steps);
   SimResult result;
+  std::vector<std::string> states_v;
 
   // Simulate GOL
   // Save intermediate states 
   // 1. to detect cycle
-  std::unordered_map<std::string, int> states;
+  absl::flat_hash_map<absl::string_view, int> states;
 
   int cycle_begin = -1;
   int cycle_end = -1;
@@ -95,11 +96,13 @@ SimResult OneSimulation(GLife& glife)
   for (i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
     // std::cout << i << ": " << state << std::endl;
-    const auto [it, inserted] = states.insert({state, i});
-    if (inserted) {
+    const auto it = states.find(state);
+    const bool found = it != states.end();
+    if (!found) {
       // A new state.
+      states_v.push_back(std::move(state));
+      states.insert({states_v.back(), i});
       glife.Update();
-      result.states.push_back(std::move(state));
     } else { 
       cycle_begin = it->second;
       // std::cout << "Finite path: " << it->second;
@@ -107,12 +110,12 @@ SimResult OneSimulation(GLife& glife)
       cycle_end = i;
 
       std::vector<std::string> cycle(
-          result.states.begin() + it->second, result.states.end());
-      while (result.states.size() < max_steps) {
-        result.states.insert(result.states.end(), cycle.begin(), cycle.end());
+          states_v.begin() + it->second, states_v.end());
+      while (states_v.size() < max_steps) {
+        states_v.insert(states_v.end(), cycle.begin(), cycle.end());
       }
-      assert(result.states.size() >= max_steps);
-      result.states.resize(max_steps);
+      assert(states_v.size() >= max_steps);
+      states_v.resize(max_steps);
       break;
     }
   }
@@ -122,12 +125,12 @@ SimResult OneSimulation(GLife& glife)
     // No cycle found within max_steps
     // std::cout << "Finite path: unknown";
     // std::cout << ", Cycle length: unknown" << std::endl;
-    entropy = ShannonEntropy(result.states.begin(), result.states.end());
+    entropy = ShannonEntropy(states_v.begin(), states_v.end());
     // printf("Shannon entropy: %6.2f\n", shannon_entropy);
   } else {
     assert(cycle_begin != -1);
-    entropy = ShannonEntropy(result.states.begin() + cycle_begin,
-                             result.states.begin() + cycle_end);
+    entropy = ShannonEntropy(states_v.begin() + cycle_begin,
+                             states_v.begin() + cycle_end);
     result.cycle_len = cycle_end - cycle_begin;
     // printf("Shannon entropy: %6.2f\n", shannon_entropy);
   }
@@ -280,23 +283,39 @@ int main(int argc, char *argv[])
     }
   }
 
+  const int num_threads = absl::GetFlag(FLAGS_num_threads);
   std::vector<SimResult> results;
 
   auto start = std::chrono::steady_clock::now();
   int count_states = 0;
   std::ifstream ifs(states_filename);
-  while (true) {
-    std::string state;
-    ifs >> state;
-    if (ifs.eof()) break;
+
+  bool done = false;
+  while (!done) {
+    std::vector<std::future<SimResult>> futures;
+    for (int j = 0; j < num_threads; j++) {
+      std::string state;
+      ifs >> state;
+      if (ifs.eof()) {
+        done = true;
+        break;
+      }
     
-    GLife glife(zygote);
-    glife.SetState(state);
+      auto future = std::async(std::launch::async,
+                               [state = std::move(state), &zygote]() {
+                                 GLife glife(zygote);
+                                 glife.SetState(state);
+                                 return OneSimulation(glife);
+                               });
+      futures.push_back(std::move(future));
+    }
+    for (auto& future : futures) {
+      results.push_back(future.get());
+    }
 
-    results.push_back(OneSimulation(glife));
-    count_states += 1;
+    count_states += num_threads;
 
-    if (verbose && (count_states % 100) == 0) {
+    if (verbose && (count_states % (100 * num_threads)) == 0) {
       auto end = std::chrono::steady_clock::now();
       std::cerr << std::setw(4) << count_states << " Elapsed time in milliseconds: "
         << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
