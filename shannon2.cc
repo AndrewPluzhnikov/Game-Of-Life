@@ -290,6 +290,7 @@ int main(int argc, char *argv[])
   int count_states = 0;
   std::ifstream ifs(states_filename);
 
+  int prev_report = 0;
   bool done = false;
   while (!done) {
     std::vector<std::future<SimResult>> futures;
@@ -315,12 +316,15 @@ int main(int argc, char *argv[])
 
     count_states += num_threads;
 
-    if (verbose && (count_states % (100 * num_threads)) == 0) {
-      auto end = std::chrono::steady_clock::now();
-      std::cerr << std::setw(4) << count_states << " Elapsed time in milliseconds: "
-        << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-        << " ms" << std::endl;
-      start = end;
+    if (verbose) {
+      if (count_states / 100 > prev_report) {
+        prev_report = count_states / 100;
+        auto end = std::chrono::steady_clock::now();
+        std::cerr << std::setw(4) << count_states << " Elapsed time in milliseconds: "
+          << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+          << " ms" << std::endl;
+        start = end;
+      }
     }
   }
 
