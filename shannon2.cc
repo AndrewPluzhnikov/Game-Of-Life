@@ -287,7 +287,6 @@ int main(int argc, char *argv[])
   std::vector<SimResult> results;
 
   auto start = std::chrono::steady_clock::now();
-  int count_states = 0;
   std::ifstream ifs(states_filename);
 
   int prev_report = 0;
@@ -314,9 +313,8 @@ int main(int argc, char *argv[])
       results.push_back(future.get());
     }
 
-    count_states += num_threads;
-
     if (verbose) {
+      const size_t count_states = results.size();
       if (count_states / 100 > prev_report) {
         prev_report = count_states / 100;
         auto end = std::chrono::steady_clock::now();
