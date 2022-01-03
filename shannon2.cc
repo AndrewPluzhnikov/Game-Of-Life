@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
   if (outd.empty()) {
     outd = "results___" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
   }
-  if (0 != mkdir(outd.c_str(), 0777)) {
+  if (0 != mkdir(outd.c_str(), 0777) && errno != EEXIST) {
     std::cerr << argv[0] << " mkdir(" << outd << "): " << strerror(errno) << std::endl;
     exit(1);
   }
