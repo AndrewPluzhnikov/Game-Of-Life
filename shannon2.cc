@@ -28,6 +28,9 @@ ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
 ABSL_FLAG(int, max_steps, 4000, "Number of edges to add");
 ABSL_FLAG(double, density_threshold, 0, "Use density rule with the given threshold");
+
+ABSL_FLAG(std::string, output_dir, "", "Output directory");
+
 ABSL_FLAG(std::vector<std::string>, underpopulation, {},
           "Use underpopulation rule with given thresholds");
 ABSL_FLAG(std::vector<std::string>, overpopulation, {},
@@ -290,7 +293,10 @@ int main(int argc, char *argv[])
     zygote.AddEdges(num_remove);
   }
 
-  const std::string outd = "results___" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
+  std::string outd = absl::GetFlag(FLAGS_output_dir);
+  if (outd.empty()) {
+    outd = "results___" + ConcatArgs(argc, argv) + std::to_string(time(NULL));
+  }
   if (0 != mkdir(outd.c_str(), 0777)) {
     std::cerr << argv[0] << " mkdir(" << outd << "): " << strerror(errno) << std::endl;
     exit(1);
@@ -376,5 +382,6 @@ int main(int argc, char *argv[])
                                                   absl::StrAppend(out, r.cycle_len);
                                               }));
 
+  // SaveTo(outd, "combined.csv", CombineAll(results));
   return 0;
 }
