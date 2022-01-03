@@ -33,6 +33,11 @@ ABSL_FLAG(std::vector<std::string>, underpopulation, {},
 ABSL_FLAG(std::vector<std::string>, overpopulation, {},
           "Use overpopulation rule with given thresholds");
 
+ABSL_FLAG(std::vector<std::string>, B, {},
+          "Use provided list for dead->alive transition.");
+ABSL_FLAG(std::vector<std::string>, S, {},
+          "Use provided list for alive->alive transition.");
+
 // Modified Conway rules.
 ABSL_FLAG(std::vector<std::string>, conway, {},
           "Use modified Conway rule with 3 given thresholds");
@@ -196,6 +201,9 @@ int main(int argc, char *argv[])
   const auto underpop = absl::GetFlag(FLAGS_underpopulation);
   const auto overpop = absl::GetFlag(FLAGS_overpopulation);
   const auto conway = absl::GetFlag(FLAGS_conway);
+  const auto B = absl::GetFlag(FLAGS_B);
+  const auto S = absl::GetFlag(FLAGS_S);
+
   if (!underpop.empty()) {
     assert(density_threshold == 0);
     assert(overpop.empty());
@@ -246,6 +254,27 @@ int main(int argc, char *argv[])
       return live;
     });
 
+  }
+
+  if (!B.empty() && !S.empty()) {
+    std::vector<int> b, s;
+    for (const auto& str : B) b.push_back(atoi(str.c_str()));
+    for (const auto& str : S) s.push_back(atoi(str.c_str()));
+
+    zygote.SetNewStateFn(
+        [b = std::move(b), s = std::move(s)](bool live,
+                                            int num_neighbors,
+                                            int num_live_neighbors) mutable {
+      if (!live &&
+          std::find(b.begin(), b.end(), num_live_neighbors) != b.end()) {
+        return true;
+      }
+      if (live &&
+          std::find(s.begin(), s.end(), num_live_neighbors) != s.end()) {
+        return true;
+      }
+      return false;
+    });
   }
 
   const auto verbose = absl::GetFlag(FLAGS_verbose);
