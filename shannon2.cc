@@ -172,6 +172,18 @@ std::string ConcatArgs(int argc, char *argv[])
   return absl::StrReplaceAll(result, {{"/", "_"}});
 }
 
+// Combine all results into a string suitable for importing
+// into Google sheet.
+std::string CombineAll(const std::vector<SimResult>& results)
+{
+  std::string result = "FinitePath,CycleLength,Entropy\n";
+  for (const auto& r : results) {
+    absl::StrAppend(
+        &result, r.max_steps, ",", r.cycle_len, ",", r.entropy, "\n");
+  }
+  return result;
+}
+
 int main(int argc, char *argv[]) 
 {
   srand(time(NULL));
@@ -382,6 +394,6 @@ int main(int argc, char *argv[])
                                                   absl::StrAppend(out, r.cycle_len);
                                               }));
 
-  // SaveTo(outd, "combined.csv", CombineAll(results));
+  SaveTo(outd, "combined.csv", CombineAll(results));
   return 0;
 }
