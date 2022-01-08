@@ -22,6 +22,7 @@
 #include "glife.h"
 
 ABSL_FLAG(bool, verbose, false, "Be verbose");
+ABSL_FLAG(bool, print_states, false, "Print each state in evolution");
 ABSL_FLAG(int, num_threads, 1, "Number of threads to use");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
@@ -98,12 +99,15 @@ SimResult OneSimulation(GLife& glife)
   // 1. to detect cycle
   absl::flat_hash_map<absl::string_view, int> states;
 
+  const bool print_states = absl::GetFlag(FLAGS_print_states);
   int cycle_begin = -1;
   int cycle_end = -1;
   int i;
   for (i = 0; i < max_steps; ++i) {
     const std::string state = glife.GetStateStr();
-    // std::cout << i << ": " << state << std::endl;
+    if (print_states) {
+      std::cout << std::setw(6) << i << ": " << state << std::endl;
+    }
     const auto it = states.find(state);
     const bool found = it != states.end();
     if (!found) {
