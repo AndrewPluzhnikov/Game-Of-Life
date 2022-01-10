@@ -23,6 +23,7 @@
 
 ABSL_FLAG(bool, verbose, false, "Be verbose");
 ABSL_FLAG(bool, print_states, false, "Print each state in evolution");
+ABSL_FLAG(bool, count_live, false, "Count live cells in each generation");
 ABSL_FLAG(int, num_threads, 1, "Number of threads to use");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
@@ -86,6 +87,7 @@ struct SimResult {
   double entropy = 0.0;  // Shannon entropy.
   int cycle_len = -1;
   int max_steps = 0;
+  std::vector<int> num_live;
 };
 
 SimResult OneSimulation(GLife& glife)
@@ -100,6 +102,7 @@ SimResult OneSimulation(GLife& glife)
   absl::flat_hash_map<absl::string_view, int> states;
 
   const bool print_states = absl::GetFlag(FLAGS_print_states);
+  const bool count_live = absl::GetFlag(FLAGS_count_live);
   int cycle_begin = -1;
   int cycle_end = -1;
   int i;
@@ -113,7 +116,13 @@ SimResult OneSimulation(GLife& glife)
     if (!found) {
       // A new state.
       states_v.push_back(std::move(state));
-      states.insert({states_v.back(), i});
+      auto &s = states_v.back();
+      states.insert({s, i});
+
+      if (count_live) {
+        result.num_live.push_back(std::count_if(
+            s.begin(), s.end(), [](char c) { return c == '1'; }));
+      }
       glife.Update();
     } else { 
       cycle_begin = it->second;
@@ -399,5 +408,15 @@ int main(int argc, char *argv[])
                                               }));
 
   SaveTo(outd, "combined.csv", CombineAll(results));
+
+  if (!results.empty() && !results[0].num_live.empty()) {
+    std::string str;
+    for (const auto &r : results) {
+      absl::StrAppend(&str, absl::StrJoin(r.num_live, ","), "\n");
+    }
+    str.resize(str.size() - 1);
+    SaveTo(outd, "num_live.csv", str);
+  }
+
   return 0;
 }
