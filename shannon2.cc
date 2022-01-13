@@ -28,7 +28,8 @@ ABSL_FLAG(int, num_threads, 1, "Number of threads to use");
 ABSL_FLAG(int, num_rewire, 0, "Number of rewirings to perform");
 ABSL_FLAG(int, num_remove, 0, "Number of edges to remove");
 ABSL_FLAG(int, num_add, 0, "Number of edges to add");
-ABSL_FLAG(int, max_steps, 4000, "Number of edges to add");
+ABSL_FLAG(int, max_steps, 4000, "Max number of simulations to run");
+
 ABSL_FLAG(double, density_threshold, 0, "Use density rule with the given threshold");
 
 ABSL_FLAG(std::string, output_dir, "", "Output directory");
